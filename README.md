@@ -46,11 +46,11 @@ re-grant permission after a rebuild.
 ### Visual mode (`-- VISUAL --`)
 
 | Key       | Action                                          |
-|-----------|--------------------------------------------------|
-| `h j k l` | extend selection left / down / up / right        |
-| `f`       | toggle favorite for the whole selection           |
-| `d`       | delete the selection, return to normal mode       |
-| `Esc` / `v` | leave visual mode (selection stays as-is)       |
+|-----------|-------------------------------------------------|
+| `h j k l` | extend selection left / down / up / right       |
+| `f`       | toggle favorite for the whole selection         |
+| `d`       | delete the selection, return to normal mode     |
+| `Esc` / `v` | leave visual mode, collapsing the selection to a single item |
 
 ## How it works
 
@@ -59,11 +59,18 @@ Photos.app is frontmost, unmodified key presses are run through a small modal
 state machine (`ModalController`) and either:
 
 - **passed through** untouched (anything not bound),
-- **swallowed** (mode-switch keys like `v` / `Esc` never reach Photos), or
+- **swallowed** (mode-switch keys like `v` / `Esc` never reach Photos),
 - **remapped** in place to one of Photos' own native shortcuts — e.g. `j`
   becomes Down-arrow, and in visual mode it becomes Shift+Down to extend the
   grid selection, exactly as if you'd held Shift and pressed the arrow key
-  yourself.
+  yourself, or
+- **swallowed and replaced** with an entirely different native keystroke
+  sequence — e.g. `Esc` in visual mode is dropped and a synthetic
+  Right-then-Left arrow press is posted in its place. Pressing an unmodified
+  arrow key collapses a multi-item selection down to one item, and doing
+  right-then-left lands on whichever photo was at the "active" end of the
+  visual selection — mirroring how vim's Esc leaves the cursor at the end of
+  a visual block rather than deselecting everything.
 
 Synthetic events are tagged with a marker field (`eventSourceUserData`) so
 the tap recognizes — and ignores — its own output rather than reprocessing it.

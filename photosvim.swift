@@ -38,6 +38,12 @@ let nativeFavorite = NativeKey(kVK_ANSI_Period)  // "."  toggle favorite
 let nativeDelete = NativeKey(kVK_ForwardDelete, .maskCommand)  // ⌘⌫   delete photo
 let nativeEdit = NativeKey(kVK_Return)  // ⏎   open / edit photo
 
+/// Collapses a multi-item selection down to a single item: moving right then
+/// back left lands the selection on whatever was at the "active" end of the
+/// visual-mode selection — mirroring how vim's Esc leaves the cursor at the
+/// end of a visual block rather than deselecting everything.
+let collapseSelectionSequence = [nativeMoveRight, nativeMoveLeft]
+
 // MARK: - Modes ----------------------------------------------------------------
 
 enum Mode {
@@ -52,6 +58,11 @@ enum Translation {
   case passthrough
   case swallow
   case remap(NativeKey)
+  /// Swallow the original key entirely and, on its key-down, post a sequence
+  /// of brand new native keystrokes instead — for actions that don't
+  /// correspond 1:1 to the key the user pressed (e.g. Esc both leaves visual
+  /// mode *and* collapses the selection, which takes two native keystrokes).
+  case inject([NativeKey])
 }
 
 final class ModalController {
@@ -84,6 +95,13 @@ final class ModalController {
       event.flags = native.flags
       event.setIntegerValueField(.eventSourceUserData, value: syntheticMarker)
       return event
+    case .inject(let sequence):
+      // Post the replacement on key-down only — the key-up follows the same
+      // `.inject` translation (via `heldKeys`) and would otherwise post it twice.
+      if type == .keyDown {
+        postSyntheticKeySequence(sequence)
+      }
+      return nil
     }
   }
 
@@ -117,7 +135,7 @@ final class ModalController {
       switch Int(keyCode) {
       case kVK_Escape, kVK_ANSI_V:
         mode = .normal
-        return .swallow
+        return .inject(collapseSelectionSequence)
 
       // Movement extends the selection (Shift+Arrow), vim-style.
       case kVK_ANSI_H: return .remap(nativeExtendLeft)
@@ -172,6 +190,24 @@ final class ModeIndicator: NSObject {
 
 private func isTargetAppFrontmost() -> Bool {
   NSWorkspace.shared.frontmostApplication?.bundleIdentifier == targetBundleID
+}
+
+/// Posts a sequence of brand new native keystrokes (key-down + key-up each),
+/// in order, tagged so our own tap passes them straight through instead of
+/// reprocessing them.
+private func postSyntheticKeySequence(_ natives: [NativeKey]) {
+  guard let source = CGEventSource(stateID: .hidSystemState) else { return }
+  for native in natives {
+    for keyDown in [true, false] {
+      guard
+        let synthetic = CGEvent(
+          keyboardEventSource: source, virtualKey: native.keyCode, keyDown: keyDown)
+      else { continue }
+      synthetic.flags = native.flags
+      synthetic.setIntegerValueField(.eventSourceUserData, value: syntheticMarker)
+      synthetic.post(tap: .cghidEventTap)
+    }
+  }
 }
 
 /// Modifiers that take a keystroke out of our vim layer's hands entirely —
@@ -270,7 +306,8 @@ print(
     f            toggle favorite
     d            delete (also exits visual mode)
     e            edit / open photo
-    Esc or v     leave visual mode
+    Esc or v     (in visual mode) leave visual mode, collapsing the
+                 selection down to a single photo
   """)
 
 app.run()
