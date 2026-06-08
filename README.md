@@ -1,4 +1,4 @@
-# photosvim
+# photos-vim-keys
 
 A modal, vim-style keyboard layer for Photos.app on macOS, built with a
 `CGEventTap`.
@@ -6,7 +6,7 @@ A modal, vim-style keyboard layer for Photos.app on macOS, built with a
 ## Build & run
 
 ```sh
-make run        # builds and launches ./photosvim
+make run        # builds and launches ./photos-vim-keys
 make build
 make clean
 ```
@@ -17,12 +17,12 @@ The layer is only active while **Photos.app is frontmost** — switch away and
 your keyboard behaves normally.
 
 To quit, press `Ctrl-C` in the terminal you launched it from (or `make run`),
-or run `pkill photosvim` from another terminal.
+or run `pkill photos-vim-keys` from another terminal.
 
 ### Permissions
 
 Creating a session-level event tap requires Accessibility access. The first
-time you run it, macOS will either prompt you or `photosvim` will print an
+time you run it, macOS will either prompt you or `photos-vim-keys` will print an
 error and exit. If so, open **System Settings → Privacy & Security →
 Accessibility** (and, on some macOS versions, **Input Monitoring** too) and
 enable the binary (or the terminal app you launched it from — permissions are
@@ -57,7 +57,7 @@ inherited from the parent process). Re-run after granting access.
 
 ## How it works
 
-`photosvim` installs a `CGEventTap` on the session event stream. While
+`photos-vim-keys` installs a `CGEventTap` on the session event stream. While
 Photos.app is frontmost, unmodified key presses are run through a small modal
 state machine (`ModalController`) and either:
 
@@ -83,7 +83,7 @@ stuck modifier or stuck key.
 
 ### Typing into text fields
 
-Before intercepting a key-down, `photosvim` asks the Accessibility API which
+Before intercepting a key-down, `photos-vim-keys` asks the Accessibility API which
 UI element is focused in Photos (`isTextInputFocused`). If it's a text field,
 text area, or combo box — search fields, album/photo renaming, captions,
 comments, etc. — every keystroke is passed through untouched, so `j`/`k`/`d`/…
@@ -94,7 +94,7 @@ short messaging timeout so a slow Photos can't stall the tap.
 
 ## Customizing
 
-Everything you'd want to tweak lives at the top of `photosvim.swift`:
+Everything you'd want to tweak lives at the top of `photos-vim-keys.swift`:
 
 - `targetBundleID` — which app the layer is active in.
 - The `native*` constants — which actual Photos.app keystroke each action

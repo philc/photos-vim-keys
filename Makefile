@@ -1,5 +1,5 @@
-BIN := photosvim
-SRC := photosvim.swift
+BIN := photos-vim-keys
+SRC := photos-vim-keys.swift
 
 .PHONY: build run clean
 
