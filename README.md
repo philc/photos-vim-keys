@@ -1,15 +1,15 @@
 # photosvim
 
 A modal, vim-style keyboard layer for Photos.app on macOS, built with a
-`CGEventTap`. No Xcode project, no Interface Builder — it's a single Swift
-file compiled directly with `swiftc`.
+`CGEventTap`.
 
 ## Build & run
 
 ```sh
 make run        # builds (if needed) and launches ./photosvim
-make build      # just builds
-make clean      # removes the binary
+make run        # builds and launches ./photosvim
+make build
+make clean
 ```
 
 `make build` produces a `photosvim` binary in the project directory; you can
@@ -27,9 +27,6 @@ error and exit. If so, open **System Settings → Privacy & Security →
 Accessibility** (and, on some macOS versions, **Input Monitoring** too) and
 enable the binary (or the terminal app you launched it from — permissions are
 inherited from the parent process). Re-run after granting access.
-
-Note: re-running `./build.sh` produces a new binary; macOS may ask you to
-re-grant permission after a rebuild.
 
 ## Bindings
 
