@@ -61,6 +61,8 @@ let nativeExtendDown = NativeKey(kVK_DownArrow, .maskShift)
 let nativeFavorite = NativeKey(kVK_ANSI_Period)  // "."  toggle favorite
 let nativeDelete = NativeKey(kVK_Delete, .maskCommand)  // ⌘⌫   delete photo
 let nativeEdit = NativeKey(kVK_Return)  // ⏎   open / edit photo
+let nativeUndo = NativeKey(kVK_ANSI_Z, .maskCommand)  // ⌘Z    undo
+let nativeRedo = NativeKey(kVK_ANSI_Z, [.maskCommand, .maskShift])  // ⇧⌘Z   redo
 
 // "gg" / "G" -- jump to the first / last photo in the grid (vim's "go to
 // first/last line"). They're built from a deselect/jump/nudge sequence (see
@@ -182,6 +184,15 @@ final class ModalController {
         // G — same story as "gg" above: no sensible visual-mode equivalent.
         return mode == .visual ? .swallow : .inject(goToLastSequence)
       }
+    }
+
+    // Undo/redo are global editing actions, not selection-dependent — handle
+    // them ahead of the per-mode switch so they work the same in both modes.
+    if Int(keyCode) == kVK_ANSI_U && modifiers.isEmpty {
+      return .remap(nativeUndo)  // u
+    }
+    if Int(keyCode) == kVK_ANSI_R && modifiers == [.maskShift] {
+      return .remap(nativeRedo)  // R
     }
 
     switch mode {

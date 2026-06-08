@@ -37,6 +37,8 @@ inherited from the parent process). Re-run after granting access.
 | `h j k l` | move selection left / down / up / right |
 | `gg`    | jump to the first photo                  |
 | `G`     | jump to the last photo                   |
+| `u`     | undo                                     |
+| `R`     | redo                                     |
 | `v`     | enter visual mode                        |
 | `f`     | toggle favorite                          |
 | `d`     | delete photo (→ Recently Deleted)        |
@@ -47,6 +49,8 @@ inherited from the parent process). Re-run after granting access.
 | Key       | Action                                          |
 |-----------|-------------------------------------------------|
 | `h j k l` | extend selection left / down / up / right       |
+| `u`       | undo                                            |
+| `R`       | redo                                            |
 | `f`       | toggle favorite for the whole selection         |
 | `d`       | delete the selection, return to normal mode     |
 | `Esc` / `v` | leave visual mode, collapsing the selection to a single item |
