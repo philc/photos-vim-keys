@@ -297,17 +297,4 @@ let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
 CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
 CGEvent.tapEnable(tap: tap, enable: true)
 
-print(
-  """
-  Photos Vim is running — look for "-- NORMAL --" in the menu bar.
-  Switch to Photos.app and try:
-    v            enter visual mode (selection-extending)
-    h j k l      move / extend selection left, down, up, right
-    f            toggle favorite
-    d            delete (also exits visual mode)
-    e            edit / open photo
-    Esc or v     (in visual mode) leave visual mode, collapsing the
-                 selection down to a single photo
-  """)
-
 app.run()
