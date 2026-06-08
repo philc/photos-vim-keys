@@ -19,11 +19,34 @@ let syntheticMarker: Int64 = 0x5649_4D31  // "VIM1"
 struct NativeKey {
   let keyCode: CGKeyCode
   let flags: CGEventFlags
-  init(_ keyCode: Int, _ flags: CGEventFlags = []) {
+  /// Overrides the event's Unicode string. Needed for keys like Home/End,
+  /// whose meaning AppKit's key-binding system reads from their (private-use-
+  /// area) character rather than their key code — the physical key we're
+  /// remapping from leaves the wrong character on the event otherwise.
+  /// `nil` leaves whatever string the underlying event already carries.
+  let unicodeScalar: UniChar?
+
+  init(_ keyCode: Int, _ flags: CGEventFlags = [], unicodeScalar: UniChar? = nil) {
     self.keyCode = CGKeyCode(keyCode)
     self.flags = flags
+    self.unicodeScalar = unicodeScalar
   }
 }
+
+/// Applies a `NativeKey`'s Unicode string override (if any) to the event
+/// being sent in its place.
+private func applyUnicodeOverride(_ scalar: UniChar?, to event: CGEvent) {
+  guard var scalar = scalar else { return }
+  withUnsafePointer(to: &scalar) {
+    event.keyboardSetUnicodeString(stringLength: 1, unicodeString: $0)
+  }
+}
+
+// AppKit's private-use-area characters for the Home/End "function keys" —
+// what fn+←/fn+→ actually produce, and what Photos' key-binding-driven
+// "jump to first/last photo" command recognizes.
+private let homeFunctionKey: UniChar = 0xF729
+private let endFunctionKey: UniChar = 0xF72B
 
 // Photos.app's own shortcuts that each action below is translated into.
 // Adjust these if your version of Photos binds them differently.
@@ -38,6 +61,23 @@ let nativeExtendDown = NativeKey(kVK_DownArrow, .maskShift)
 let nativeFavorite = NativeKey(kVK_ANSI_Period)  // "."  toggle favorite
 let nativeDelete = NativeKey(kVK_ForwardDelete, .maskCommand)  // ⌘⌫   delete photo
 let nativeEdit = NativeKey(kVK_Return)  // ⏎   open / edit photo
+
+// "gg" / "G" -- jump to the first / last photo in the grid (vim's "go to
+// first/last line"). They're built from a deselect/jump/nudge sequence (see
+// `goToFirstSequence`/`goToLastSequence` below) that only makes sense as a
+// fresh single-photo selection, so in visual mode they're no-ops.
+let nativeGoToFirst = NativeKey(kVK_Home, unicodeScalar: homeFunctionKey)  // fn+←  (Home)  jump to first photo
+let nativeGoToLast = NativeKey(kVK_End, unicodeScalar: endFunctionKey)  // fn+→  (End)  jump to last photo
+let nativeDeselectAll = NativeKey(kVK_ANSI_A, [.maskCommand, .maskAlternate])  // ⌘⌥A  deselect all
+
+/// "gg"/"G" in normal mode don't just move the keyboard focus to the first/
+/// last photo — they should *select* it and clear any prior multi-selection,
+/// the way landing on a line in vim leaves the cursor there and nowhere else.
+/// Photos doesn't have a single shortcut for that, so we compose one: clear
+/// the selection, jump to the corner, then nudge onto the first/last photo
+/// (which Home/End alone moves the focus past without selecting anything).
+let goToFirstSequence = [nativeDeselectAll, nativeGoToFirst, nativeMoveRight]
+let goToLastSequence = [nativeDeselectAll, nativeGoToLast, nativeMoveLeft]
 
 /// Collapses a multi-item selection down to a single item: moving right then
 /// back left lands the selection on whatever was at the "active" end of the
@@ -73,6 +113,11 @@ final class ModalController {
   private let indicator = ModeIndicator()
   private var heldKeys: [CGKeyCode: Translation] = [:]
 
+  /// Set after a bare "g" — vim's prefix for "go to" commands. Only "gg"
+  /// (go to the first photo) means anything to us; any other follow-up key
+  /// cancels it and is then decided as if "g" had never been pressed.
+  private var pendingG = false
+
   func isTracking(_ keyCode: CGKeyCode) -> Bool {
     heldKeys[keyCode] != nil
   }
@@ -80,7 +125,7 @@ final class ModalController {
   func handle(event: CGEvent, type: CGEventType, keyCode: CGKeyCode) -> CGEvent? {
     let translation: Translation
     if type == .keyDown {
-      translation = decide(for: keyCode)
+      translation = decide(for: keyCode, flags: event.flags)
       heldKeys[keyCode] = translation
     } else {
       translation = heldKeys.removeValue(forKey: keyCode) ?? .passthrough
@@ -94,6 +139,7 @@ final class ModalController {
     case .remap(let native):
       event.setIntegerValueField(.keyboardEventKeycode, value: Int64(native.keyCode))
       event.flags = native.flags
+      applyUnicodeOverride(native.unicodeScalar, to: event)
       event.setIntegerValueField(.eventSourceUserData, value: syntheticMarker)
       return event
     case .inject(let sequence):
@@ -109,7 +155,35 @@ final class ModalController {
   /// Looks up how to translate `keyCode` for the current mode. May itself
   /// trigger a mode switch (e.g. "v" enters visual mode, "d" in visual
   /// mode deletes the selection and returns to normal mode).
-  private func decide(for keyCode: CGKeyCode) -> Translation {
+  ///
+  /// Handles the "g" prefix ahead of the per-mode switch so "gg"/"G" behave
+  /// the same — modulo extending vs. moving the selection — in both modes.
+  private func decide(for keyCode: CGKeyCode, flags: CGEventFlags) -> Translation {
+    // Real keyboard events carry incidental flag bits (e.g. .maskNonCoalesced)
+    // alongside the modifiers that actually matter, so compare against the
+    // intersection rather than the raw flags — matching `isRelevantKeystroke`.
+    let modifiers = flags.intersection(meaningfulModifiers)
+
+    if pendingG {
+      pendingG = false
+      if Int(keyCode) == kVK_ANSI_G && modifiers.isEmpty {
+        // gg — the deselect-all/jump/nudge sequence we compose this from
+        // doesn't translate into "extend the selection", so just no-op there.
+        return mode == .visual ? .swallow : .inject(goToFirstSequence)
+      }
+      // Not "gg" — fall through and decide this key as if "g" never happened.
+    }
+    if Int(keyCode) == kVK_ANSI_G {
+      if modifiers.isEmpty {
+        pendingG = true
+        return .swallow
+      }
+      if modifiers == [.maskShift] {
+        // G — same story as "gg" above: no sensible visual-mode equivalent.
+        return mode == .visual ? .swallow : .inject(goToLastSequence)
+      }
+    }
+
     switch mode {
     case .normal:
       switch Int(keyCode) {
@@ -125,6 +199,7 @@ final class ModalController {
 
       // Single-photo actions.
       case kVK_ANSI_F: return .remap(nativeFavorite)
+      case kVK_ANSI_S: return .remap(nativeFavorite)
       case kVK_ANSI_D: return .remap(nativeDelete)
       case kVK_ANSI_E: return .remap(nativeEdit)
 
@@ -304,17 +379,28 @@ private func postSyntheticKeySequence(_ natives: [NativeKey]) {
           keyboardEventSource: source, virtualKey: native.keyCode, keyDown: keyDown)
       else { continue }
       synthetic.flags = native.flags
+      applyUnicodeOverride(native.unicodeScalar, to: synthetic)
       synthetic.setIntegerValueField(.eventSourceUserData, value: syntheticMarker)
       synthetic.post(tap: .cghidEventTap)
     }
   }
 }
 
-/// Modifiers that take a keystroke out of our vim layer's hands entirely —
-/// e.g. ⌘A "select all" should reach Photos untouched, not get reinterpreted.
-private let passthroughModifiers: CGEventFlags = [
+/// Modifier keys we pay attention to — Caps Lock, the numeric pad, and other
+/// incidental flags macOS reports don't change how we interpret a keystroke.
+private let meaningfulModifiers: CGEventFlags = [
   .maskCommand, .maskControl, .maskAlternate, .maskShift,
 ]
+
+/// Whether our modal layer should interpret this keystroke at all. Bare keys
+/// always qualify; the only modified keystroke we care about is Shift+G
+/// (vim's "go to last photo") — everything else (⌘-shortcuts, Shift+Arrow
+/// for Photos' own native multi-select, …) passes straight through untouched.
+private func isRelevantKeystroke(flags: CGEventFlags, keyCode: CGKeyCode) -> Bool {
+  let modifiers = flags.intersection(meaningfulModifiers)
+  if modifiers.isEmpty { return true }
+  return modifiers == [.maskShift] && Int(keyCode) == kVK_ANSI_G
+}
 
 private var eventTap: CFMachPort?
 
@@ -343,7 +429,7 @@ private func handleEvent(
   if type == .keyDown {
     guard
       let app = frontmostTargetApp(),
-      event.flags.intersection(passthroughModifiers).isEmpty,
+      isRelevantKeystroke(flags: event.flags, keyCode: keyCode),
       !isTextInputFocused(in: app)
     else {
       return Unmanaged.passRetained(event)
