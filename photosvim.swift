@@ -59,7 +59,7 @@ let nativeExtendRight = NativeKey(kVK_RightArrow, .maskShift)
 let nativeExtendUp = NativeKey(kVK_UpArrow, .maskShift)
 let nativeExtendDown = NativeKey(kVK_DownArrow, .maskShift)
 let nativeFavorite = NativeKey(kVK_ANSI_Period)  // "."  toggle favorite
-let nativeDelete = NativeKey(kVK_ForwardDelete, .maskCommand)  // ⌘⌫   delete photo
+let nativeDelete = NativeKey(kVK_Delete, .maskCommand)  // ⌘⌫   delete photo
 let nativeEdit = NativeKey(kVK_Return)  // ⏎   open / edit photo
 
 // "gg" / "G" -- jump to the first / last photo in the grid (vim's "go to
