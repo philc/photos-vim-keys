@@ -81,6 +81,11 @@ let nativeDeselectAll = NativeKey(kVK_ANSI_A, [.maskCommand, .maskAlternate])  /
 let goToFirstSequence = [nativeDeselectAll, nativeGoToFirst, nativeMoveRight]
 let goToLastSequence = [nativeDeselectAll, nativeGoToLast, nativeMoveLeft]
 
+/// Deletes the selected photo and lands the selection on whatever took its
+/// place, rather than sliding back to the previous photo — mirroring vim's
+/// `dd`, which leaves the cursor on the line that shifted up to fill the gap.
+let deleteAndAdvanceSequence = [nativeDelete, nativeMoveRight]
+
 /// Collapses a multi-item selection down to a single item: moving right then
 /// back left lands the selection on whatever was at the "active" end of the
 /// visual-mode selection — mirroring how vim's Esc leaves the cursor at the
@@ -211,7 +216,7 @@ final class ModalController {
       // Single-photo actions.
       case kVK_ANSI_F: return .remap(nativeFavorite)
       case kVK_ANSI_S: return .remap(nativeFavorite)
-      case kVK_ANSI_D: return .remap(nativeDelete)
+      case kVK_ANSI_D: return .inject(deleteAndAdvanceSequence)
       case kVK_ANSI_E: return .remap(nativeEdit)
 
       default:
