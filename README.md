@@ -6,18 +6,18 @@ A modal, vim-style keyboard layer for Photos.app on macOS, built with a
 ## Build & run
 
 ```sh
-make run        # builds (if needed) and launches ./photosvim
 make run        # builds and launches ./photosvim
 make build
 make clean
 ```
 
-`make build` produces a `photosvim` binary in the project directory; you can
-also run it directly with `./photosvim` once built.
+Whenever the mode changes, a small `-- NORMAL --` / `-- VISUAL --` HUD message
+flashes near the bottom of the screen, vim status-line style, then fades out.
+The layer is only active while **Photos.app is frontmost** — switch away and
+your keyboard behaves normally.
 
-A small `-- NORMAL --` indicator appears in the menu bar. The layer is only
-active while **Photos.app is frontmost** — switch away and your keyboard
-behaves normally.
+To quit, press `Ctrl-C` in the terminal you launched it from (or `make run`),
+or run `pkill photosvim` from another terminal.
 
 ### Permissions
 

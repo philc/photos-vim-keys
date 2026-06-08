@@ -159,30 +159,82 @@ final class ModalController {
 
 // MARK: - Mode indicator --------------------------------------------------------
 
-/// Tiny menu-bar readout of the current mode, in the spirit of vim's
-/// "-- VISUAL --" status-line message.
-final class ModeIndicator: NSObject {
-  private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+/// A brief on-screen HUD message announcing a mode change, in the spirit of
+/// vim's "-- VISUAL --" status-line message — shown near the bottom of the
+/// screen and faded out automatically, since the menu bar may be hidden.
+final class ModeIndicator {
+  private static let padding = NSSize(width: 22, height: 12)
+  private static let visibleDuration: TimeInterval = 1.1
 
-  override init() {
-    super.init()
-    statusItem.button?.font = .monospacedSystemFont(ofSize: 12, weight: .medium)
-    let menu = NSMenu()
-    menu.addItem(withTitle: "Quit Photos Vim", action: #selector(quit), keyEquivalent: "q")
-    menu.items.last?.target = self
-    statusItem.menu = menu
-    setMode(.normal)
+  private let window: NSWindow
+  private let container = NSView()
+  private let label = NSTextField(labelWithString: "")
+  private var dismissWorkItem: DispatchWorkItem?
+
+  init() {
+    label.font = .monospacedSystemFont(ofSize: 18, weight: .semibold)
+    label.textColor = .white
+    label.alignment = .center
+
+    container.wantsLayer = true
+    container.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.78).cgColor
+    container.layer?.cornerRadius = 10
+    container.addSubview(label)
+
+    window = NSWindow(
+      contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
+    window.isOpaque = false
+    window.backgroundColor = .clear
+    window.level = .statusBar
+    window.ignoresMouseEvents = true
+    window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+    window.contentView = container
+    window.alphaValue = 0
   }
 
   func setMode(_ mode: Mode) {
-    let title = mode == .visual ? "-- VISUAL --" : "-- NORMAL --"
     DispatchQueue.main.async { [weak self] in
-      self?.statusItem.button?.title = title
+      self?.present(mode)
     }
   }
 
-  @objc private func quit() {
-    NSApplication.shared.terminate(nil)
+  private func present(_ mode: Mode) {
+    label.stringValue = mode == .visual ? "-- VISUAL --" : "-- NORMAL --"
+    label.sizeToFit()
+
+    let size = NSSize(
+      width: label.frame.width + Self.padding.width * 2,
+      height: label.frame.height + Self.padding.height * 2)
+    label.frame.origin = NSPoint(x: Self.padding.width, y: Self.padding.height)
+    container.frame = NSRect(origin: .zero, size: size)
+
+    if let screen = NSScreen.main {
+      let visible = screen.visibleFrame
+      let origin = NSPoint(
+        x: visible.midX - size.width / 2,
+        y: visible.minY + visible.height * 0.08)
+      window.setFrame(NSRect(origin: origin, size: size), display: true)
+    }
+
+    window.orderFrontRegardless()
+    dismissWorkItem?.cancel()
+
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = 0.1
+      window.animator().alphaValue = 1
+    }
+
+    let dismiss = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      NSAnimationContext.runAnimationGroup(
+        { context in
+          context.duration = 0.3
+          self.window.animator().alphaValue = 0
+        },
+        completionHandler: { self.window.orderOut(nil) })
+    }
+    dismissWorkItem = dismiss
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.visibleDuration, execute: dismiss)
   }
 }
 
