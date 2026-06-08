@@ -66,3 +66,7 @@ and either:
 Before intercepting a key-down, `photos-vim-keys` asks the Accessibility API which UI element is
 focused in Photos (`isTextInputFocused`). If it's a text field, text area, or combo box,t hen
 photos-vim-keys passes through the input.
+
+## License
+
+[MIT](LICENSE)
