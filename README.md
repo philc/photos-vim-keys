@@ -75,6 +75,17 @@ Key-ups are translated identically to their matching key-downs (tracked in
 `heldKeys`) so the mode can never change mid-press and leave Photos with a
 stuck modifier or stuck key.
 
+### Typing into text fields
+
+Before intercepting a key-down, `photosvim` asks the Accessibility API which
+UI element is focused in Photos (`isTextInputFocused`). If it's a text field,
+text area, or combo box — search fields, album/photo renaming, captions,
+comments, etc. — every keystroke is passed through untouched, so `j`/`k`/`d`/…
+type normally instead of getting reinterpreted as vim commands. (No manual
+"insert mode" needed — Photos already needs Accessibility access for the tap
+itself, so this piggybacks on the same permission.) The query is bounded by a
+short messaging timeout so a slow Photos can't stall the tap.
+
 ## Customizing
 
 Everything you'd want to tweak lives at the top of `photosvim.swift`:

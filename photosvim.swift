@@ -1,3 +1,4 @@
+import ApplicationServices
 import Carbon.HIToolbox
 import Cocoa
 
@@ -240,8 +241,55 @@ final class ModeIndicator {
 
 // MARK: - Event tap --------------------------------------------------------------
 
-private func isTargetAppFrontmost() -> Bool {
-  NSWorkspace.shared.frontmostApplication?.bundleIdentifier == targetBundleID
+/// Returns the frontmost app, but only if it's the one this layer targets.
+private func frontmostTargetApp() -> NSRunningApplication? {
+  guard let app = NSWorkspace.shared.frontmostApplication,
+    app.bundleIdentifier == targetBundleID
+  else {
+    return nil
+  }
+  return app
+}
+
+/// Accessibility roles whose focus means "the user is typing free-form
+/// text" — while one of these is focused we let every keystroke through
+/// untouched, so search fields, renaming, captions, etc. aren't intercepted.
+/// (Search fields report role `AXTextField` with a search subrole, so
+/// `kAXTextFieldRole` already covers them — no separate case needed.)
+private let textInputRoles: Set<String> = [
+  kAXTextFieldRole as String,
+  kAXTextAreaRole as String,
+  kAXComboBoxRole as String,
+]
+
+/// Whether the currently focused UI element of `app` looks like a free-text
+/// input. Bounded by a short messaging timeout so a slow or hung app can't
+/// stall the event tap — which the system would otherwise disable as
+/// unresponsive (we'd recover via `tapDisabledByTimeout`, but better to avoid
+/// the hiccup).
+private func isTextInputFocused(in app: NSRunningApplication) -> Bool {
+  let axApp = AXUIElementCreateApplication(app.processIdentifier)
+  AXUIElementSetMessagingTimeout(axApp, 0.15)
+
+  var focused: AnyObject?
+  guard
+    AXUIElementCopyAttributeValue(axApp, kAXFocusedUIElementAttribute as CFString, &focused)
+      == .success,
+    let element = focused
+  else {
+    return false
+  }
+
+  var role: AnyObject?
+  guard
+    AXUIElementCopyAttributeValue(element as! AXUIElement, kAXRoleAttribute as CFString, &role)
+      == .success,
+    let roleString = role as? String
+  else {
+    return false
+  }
+
+  return textInputRoles.contains(roleString)
 }
 
 /// Posts a sequence of brand new native keystrokes (key-down + key-up each),
@@ -293,7 +341,11 @@ private func handleEvent(
   let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
 
   if type == .keyDown {
-    guard isTargetAppFrontmost(), event.flags.intersection(passthroughModifiers).isEmpty else {
+    guard
+      let app = frontmostTargetApp(),
+      event.flags.intersection(passthroughModifiers).isEmpty,
+      !isTextInputFocused(in: app)
+    else {
       return Unmanaged.passRetained(event)
     }
   } else {
