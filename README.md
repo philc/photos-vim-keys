@@ -54,14 +54,12 @@ from the parent process). Re-run after granting access.
 ## Implementation notes
 
 `photos-vim-keys` installs a `CGEventTap` on the session event stream. While Photos.app is
-frontmost, unmodified key presses are run through a small modal state machine (`ModalController`)
-and either:
+frontmost, unmodified key presses are run through a modal state machine (`ModalController`) and
+either:
 
-- **passed through** untouched (anything not bound),
-- **swallowed** (mode-switch keys like `v` / `Esc` never reach Photos),
-- **remapped** in place to one of Photos' own native shortcuts — e.g. `j` becomes Down-arrow, and in
-  visual mode it becomes Shift+Down to extend the grid selection, exactly as if you'd held Shift and
-  pressed the arrow key yourself, or
+- **passed through** untouched (if the key is not bound),
+- **swallowed** (mode-switch keys like `v` never reach Photos),
+- **remapped** in place to one of Photos' own native shortcuts — e.g. `j` becomes Down-arrow.
 
 Before intercepting a key-down, `photos-vim-keys` asks the Accessibility API which UI element is
 focused in Photos (`isTextInputFocused`). If it's a text field, text area, or combo box,t hen
