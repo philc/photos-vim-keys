@@ -1,5 +1,5 @@
 BIN := photos-vim-keys
-SRC := photos-vim-keys.swift
+SRC := main.swift MenuBar.swift
 
 .PHONY: build run clean
 

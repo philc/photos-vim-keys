@@ -13,8 +13,7 @@ This keyboard layer is only active while **Photos.app is frontmost**.
 Whenever the mode changes, a small `-- NORMAL --` / `-- VISUAL --` HUD message flashes near the
 bottom of the screen.
 
-To quit, press `Ctrl-C` in the terminal you launched it from (or `make run`), or run `pkill
-photos-vim-keys`.
+`photos-vim-keys` runs as a menu bar app. In Preferences, it can be set to start at login.
 
 ### Permissions
 

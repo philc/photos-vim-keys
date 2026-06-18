@@ -472,6 +472,7 @@ app.setActivationPolicy(.accessory)  // background utility: no Dock icon, no app
 
 let controller = ModalController()
 let refcon = Unmanaged.passUnretained(controller).toOpaque()
+let statusBarController = StatusBarController()
 
 let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
 
