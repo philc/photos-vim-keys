@@ -32,6 +32,7 @@ from the parent process). Re-run after granting access.
 | `h j k l` | move selection left / down / up / right |
 | `gg`    | jump to the first photo                  |
 | `G`     | jump to the last photo                   |
+| `C-u` / `C-d` | move selection 5 rows up / down    |
 | `u`     | undo                                     |
 | `R`     | redo                                     |
 | `v`     | enter visual mode                        |
@@ -44,6 +45,7 @@ from the parent process). Re-run after granting access.
 | Key       | Action                                          |
 |-----------|-------------------------------------------------|
 | `h j k l` | extend selection left / down / up / right       |
+| `C-u` / `C-d` | extend selection 5 rows up / down           |
 | `u`       | undo                                            |
 | `R`       | redo                                            |
 | `f`       | toggle favorite for the whole selection         |

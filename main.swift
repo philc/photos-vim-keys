@@ -64,6 +64,20 @@ let nativeEdit = NativeKey(kVK_Return)  // ⏎   open / edit photo
 let nativeUndo = NativeKey(kVK_ANSI_Z, .maskCommand)  // ⌘Z    undo
 let nativeRedo = NativeKey(kVK_ANSI_Z, [.maskCommand, .maskShift])  // ⇧⌘Z   redo
 
+/// How many rows C-u / C-d move the selection — vim's "half a page".
+/// Photos' grid has no fixed page height (it depends on zoom), so this is a
+/// fixed row count; tune it to taste.
+let pageRows = 5
+
+/// C-u / C-d -- move (or, in visual mode, extend) the selection by
+/// `pageRows` rows. Photos' Page Up/Down — with or without Option — only
+/// scroll the view and leave the selection behind, so we step the selection
+/// with arrow keys instead and let the view follow it.
+let pageUpSequence = Array(repeating: nativeMoveUp, count: pageRows)
+let pageDownSequence = Array(repeating: nativeMoveDown, count: pageRows)
+let extendPageUpSequence = Array(repeating: nativeExtendUp, count: pageRows)
+let extendPageDownSequence = Array(repeating: nativeExtendDown, count: pageRows)
+
 // "gg" / "G" -- jump to the first / last photo in the grid (vim's "go to
 // first/last line"). They're built from a deselect/jump/nudge sequence (see
 // `goToFirstSequence`/`goToLastSequence` below) that only makes sense as a
@@ -198,6 +212,15 @@ final class ModalController {
     }
     if Int(keyCode) == kVK_ANSI_R && modifiers == [.maskShift] {
       return .remap(nativeRedo)  // R
+    }
+
+    // C-u / C-d move a "page" up / down, extending the selection in visual mode.
+    if modifiers == [.maskControl] {
+      switch Int(keyCode) {
+      case kVK_ANSI_U: return .inject(mode == .visual ? extendPageUpSequence : pageUpSequence)
+      case kVK_ANSI_D: return .inject(mode == .visual ? extendPageDownSequence : pageDownSequence)
+      default: break
+      }
     }
 
     switch mode {
@@ -409,13 +432,18 @@ private let meaningfulModifiers: CGEventFlags = [
 ]
 
 /// Whether our modal layer should interpret this keystroke at all. Bare keys
-/// always qualify; the only modified keystroke we care about is Shift+G
-/// (vim's "go to last photo") — everything else (⌘-shortcuts, Shift+Arrow
-/// for Photos' own native multi-select, …) passes straight through untouched.
+/// always qualify; the only modified keystrokes we care about are Shift+G
+/// (vim's "go to last photo") and Ctrl+U/Ctrl+D (move a page up/down) — everything
+/// else (⌘-shortcuts, Shift+Arrow for Photos' own native multi-select, …)
+/// passes straight through untouched.
 private func isRelevantKeystroke(flags: CGEventFlags, keyCode: CGKeyCode) -> Bool {
   let modifiers = flags.intersection(meaningfulModifiers)
   if modifiers.isEmpty { return true }
-  return modifiers == [.maskShift] && Int(keyCode) == kVK_ANSI_G
+  switch (modifiers, Int(keyCode)) {
+  case ([.maskShift], kVK_ANSI_G): return true
+  case ([.maskControl], kVK_ANSI_U), ([.maskControl], kVK_ANSI_D): return true
+  default: return false
+  }
 }
 
 private var eventTap: CFMachPort?
