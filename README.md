@@ -39,6 +39,7 @@ from the parent process). Re-run after granting access.
 | `f`     | toggle favorite                          |
 | `d`     | delete photo (→ Recently Deleted)        |
 | `e`     | open / edit photo                        |
+| `/`     | search                                   |
 
 ### Visual mode (`-- VISUAL --`)
 

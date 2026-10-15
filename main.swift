@@ -63,6 +63,7 @@ let nativeDelete = NativeKey(kVK_Delete, .maskCommand)  // ⌘⌫   delete photo
 let nativeEdit = NativeKey(kVK_Return)  // ⏎   open / edit photo
 let nativeUndo = NativeKey(kVK_ANSI_Z, .maskCommand)  // ⌘Z    undo
 let nativeRedo = NativeKey(kVK_ANSI_Z, [.maskCommand, .maskShift])  // ⇧⌘Z   redo
+let nativeSearch = NativeKey(kVK_ANSI_F, .maskCommand)  // ⌘F    focus the search field
 
 /// How many rows C-u / C-d move the selection — vim's "half a page".
 /// Photos' grid has no fixed page height (it depends on zoom), so this is a
@@ -241,6 +242,10 @@ final class ModalController {
       case kVK_ANSI_S: return .remap(nativeFavorite)
       case kVK_ANSI_D: return .inject(deleteAndAdvanceSequence)
       case kVK_ANSI_E: return .remap(nativeEdit)
+
+      // Search, vim-style. Once the field has focus, `isTextInputFocused`
+      // lets the typed query through untouched.
+      case kVK_ANSI_Slash: return .remap(nativeSearch)
 
       default:
         return .passthrough
