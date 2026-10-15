@@ -1,57 +1,19 @@
 import Cocoa
+import ServiceManagement
 
 // MARK: - Launch at login -----------------------------------------------------
 
-/// Manages whether `photos-vim-keys` starts automatically at login, via a
-/// per-user LaunchAgent that points at this binary's current path. (The
-/// modern `SMAppService` API needs a proper `.app` bundle to register
-/// against, which this single compiled binary isn't, so we drive
-/// `launchctl` directly instead.)
 enum LoginItemManager {
-  private static let label = "com.philcrosby.photos-vim-keys"
-
-  private static var plistURL: URL {
-    FileManager.default.homeDirectoryForCurrentUser
-      .appendingPathComponent("Library/LaunchAgents/\(label).plist")
-  }
-
-  /// Resolved at registration time, so the LaunchAgent always points at
-  /// wherever this binary actually lives on disk.
-  private static var executablePath: String {
-    URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath().path
-  }
-
   static var isEnabled: Bool {
-    FileManager.default.fileExists(atPath: plistURL.path)
+    SMAppService.mainApp.status == .enabled
   }
 
   static func setEnabled(_ enabled: Bool) {
     if enabled {
-      let plist: [String: Any] = [
-        "Label": label,
-        "ProgramArguments": [executablePath],
-        "RunAtLoad": true,
-        "ProcessType": "Interactive",
-      ]
-      guard let data = try? PropertyListSerialization.data(
-        fromPropertyList: plist, format: .xml, options: 0)
-      else { return }
-      try? FileManager.default.createDirectory(
-        at: plistURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-      try? data.write(to: plistURL)
-      run("/bin/launchctl", ["load", "-w", plistURL.path])
+      try? SMAppService.mainApp.register()
     } else {
-      run("/bin/launchctl", ["unload", "-w", plistURL.path])
-      try? FileManager.default.removeItem(at: plistURL)
+      try? SMAppService.mainApp.unregister()
     }
-  }
-
-  private static func run(_ executablePath: String, _ arguments: [String]) {
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: executablePath)
-    process.arguments = arguments
-    try? process.run()
-    process.waitUntilExit()
   }
 }
 
