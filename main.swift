@@ -509,32 +509,58 @@ let statusBarController = StatusBarController()
 
 let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
 
-guard
-  let tap = CGEvent.tapCreate(
-    tap: .cgSessionEventTap,
-    place: .headInsertEventTap,
-    options: .defaultTap,
-    eventsOfInterest: mask,
-    callback: handleEvent,
-    userInfo: refcon
-  )
-else {
+/// Creates and starts the event tap. Fails (returns false) until the app has
+/// been granted Accessibility access.
+func startEventTap() -> Bool {
+  guard
+    let tap = CGEvent.tapCreate(
+      tap: .cgSessionEventTap,
+      place: .headInsertEventTap,
+      options: .defaultTap,
+      eventsOfInterest: mask,
+      callback: handleEvent,
+      userInfo: refcon
+    )
+  else { return false }
+
+  eventTap = tap
+  let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+  CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+  CGEvent.tapEnable(tap: tap, enable: true)
+  return true
+}
+
+if !startEventTap() {
   FileHandle.standardError.write(
     Data(
       """
       Failed to create an event tap.
 
       Grant this binary access under System Settings -> Privacy & Security ->
-      Accessibility (and, on some macOS versions, Input Monitoring too),
-      then run it again.
+      Accessibility (and, on some macOS versions, Input Monitoring too).
+      Waiting for access...
 
       """.utf8))
-  exit(1)
-}
 
-eventTap = tap
-let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-CGEvent.tapEnable(tap: tap, enable: true)
+  // When launched from Finder, `open`, or at login, stderr goes nowhere — so
+  // also tell the user with a dialog that takes them to the right pane.
+  let alert = NSAlert()
+  alert.messageText = "photos-vim-keys needs Accessibility access"
+  alert.informativeText = """
+    Turn on photos-vim-keys under System Settings → Privacy & Security → \
+    Accessibility.
+    """
+  alert.addButton(withTitle: "Open System Settings")
+  alert.addButton(withTitle: "Quit")
+  app.activate(ignoringOtherApps: true)
+  guard alert.runModal() == .alertFirstButtonReturn else { exit(1) }
+  NSWorkspace.shared.open(
+    URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+
+  // Keep retrying until access is granted, so there's no need to relaunch.
+  Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
+    if startEventTap() { timer.invalidate() }
+  }
+}
 
 app.run()
