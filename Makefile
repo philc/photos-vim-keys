@@ -1,6 +1,6 @@
 APP := photos-vim-keys.app
 BIN := $(APP)/Contents/MacOS/photos-vim-keys
-SRC := main.swift MenuBar.swift
+SRC := main.swift MenuBar.swift SecureInput.swift
 # Sign with the first real code-signing identity in the keychain, if any. An
 # ad-hoc signature ("-") changes on every build, so macOS forgets the app's
 # Accessibility permission each time; a real identity keeps it across builds.

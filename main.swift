@@ -130,15 +130,19 @@ enum Translation {
 
 final class ModalController {
   private(set) var mode: Mode = .normal {
-    didSet { indicator.setMode(mode) }
+    didSet { hud.show(mode == .visual ? "-- VISUAL --" : "-- NORMAL --") }
   }
-  private let indicator = ModeIndicator()
+  private let hud: HUD
   private var heldKeys: [CGKeyCode: Translation] = [:]
 
   /// Set after a bare "g" — vim's prefix for "go to" commands. Only "gg"
   /// (go to the first photo) means anything to us; any other follow-up key
   /// cancels it and is then decided as if "g" had never been pressed.
   private var pendingG = false
+
+  init(hud: HUD) {
+    self.hud = hud
+  }
 
   func isTracking(_ keyCode: CGKeyCode) -> Bool {
     heldKeys[keyCode] != nil
@@ -277,14 +281,13 @@ final class ModalController {
   }
 }
 
-// MARK: - Mode indicator --------------------------------------------------------
+// MARK: - HUD ---------------------------------------------------------------------
 
-/// A brief on-screen HUD message announcing a mode change, in the spirit of
-/// vim's "-- VISUAL --" status-line message — shown near the bottom of the
-/// screen and faded out automatically, since the menu bar may be hidden.
-final class ModeIndicator {
+/// A brief on-screen message, such as a mode change in the spirit of vim's
+/// "-- VISUAL --" status-line message — shown near the bottom of the screen
+/// and faded out automatically, since the menu bar may be hidden.
+final class HUD {
   private static let padding = NSSize(width: 22, height: 12)
-  private static let visibleDuration: TimeInterval = 1.1
 
   private let window: NSWindow
   private let container = NSView()
@@ -312,14 +315,14 @@ final class ModeIndicator {
     window.alphaValue = 0
   }
 
-  func setMode(_ mode: Mode) {
+  func show(_ text: String, for duration: TimeInterval = 1.1) {
     DispatchQueue.main.async { [weak self] in
-      self?.present(mode)
+      self?.present(text, for: duration)
     }
   }
 
-  private func present(_ mode: Mode) {
-    label.stringValue = mode == .visual ? "-- VISUAL --" : "-- NORMAL --"
+  private func present(_ text: String, for duration: TimeInterval) {
+    label.stringValue = text
     label.sizeToFit()
 
     let size = NSSize(
@@ -354,7 +357,7 @@ final class ModeIndicator {
         completionHandler: { self.window.orderOut(nil) })
     }
     dismissWorkItem = dismiss
-    DispatchQueue.main.asyncAfter(deadline: .now() + Self.visibleDuration, execute: dismiss)
+    DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: dismiss)
   }
 }
 
@@ -504,9 +507,11 @@ private func handleEvent(
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)  // background utility: no Dock icon, no app menu
 
-let controller = ModalController()
+let hud = HUD()
+let controller = ModalController(hud: hud)
 let refcon = Unmanaged.passUnretained(controller).toOpaque()
 let statusBarController = StatusBarController()
+SecureInput.warnOnActivation(of: targetBundleID, hud: hud)
 
 let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
 
