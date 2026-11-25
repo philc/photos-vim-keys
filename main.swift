@@ -438,14 +438,15 @@ private let meaningfulModifiers: CGEventFlags = [
 
 /// Whether our modal layer should interpret this keystroke at all. Bare keys
 /// always qualify; the only modified keystrokes we care about are Shift+G
-/// (vim's "go to last photo") and Ctrl+U/Ctrl+D (move a page up/down) — everything
+/// (vim's "go to last photo"), Shift+R (redo), and Ctrl+U/Ctrl+D (move a page
+/// up/down) — everything
 /// else (⌘-shortcuts, Shift+Arrow for Photos' own native multi-select, …)
 /// passes straight through untouched.
 private func isRelevantKeystroke(flags: CGEventFlags, keyCode: CGKeyCode) -> Bool {
   let modifiers = flags.intersection(meaningfulModifiers)
   if modifiers.isEmpty { return true }
   switch (modifiers, Int(keyCode)) {
-  case ([.maskShift], kVK_ANSI_G): return true
+  case ([.maskShift], kVK_ANSI_G), ([.maskShift], kVK_ANSI_R): return true
   case ([.maskControl], kVK_ANSI_U), ([.maskControl], kVK_ANSI_D): return true
   default: return false
   }
